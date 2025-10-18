@@ -49,6 +49,10 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
     // last non-throttled processed position
     private var lastPos = PointF()
 
+    // Seek update throttling for frame updates during drag
+    private var lastSeekUpdateTime = 0L
+    private val seekUpdateInterval = 333L // ~3 FPS (1000ms / 3 frames)
+
     private var width = 0f
     private var height = 0f
     // minimum movement which triggers a Control state
@@ -88,7 +92,7 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
         private const val TAP_DURATION = 300L
 
         // full sweep from left side to right side is 2:30
-        private const val CONTROL_SEEK_MAX = 150f
+        private const val CONTROL_SEEK_MAX = 40f
 
         // same as below, we rescale it inside MPVActivity
         private const val CONTROL_VOLUME_MAX = 1.5f
@@ -158,11 +162,22 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
                     stateDirection = 1
                 }
                 // send Init so that it has a chance to cache values before we start modifying them
-                if (state != State.Down)
+                if (state != State.Down) {
                     sendPropertyChange(PropertyChange.Init, 0f)
+                    // Reset seek throttle timer when entering ControlSeek state
+                    if (state == State.ControlSeek) {
+                        lastSeekUpdateTime = 0L
+                    }
+                }
             }
-            State.ControlSeek ->
-                sendPropertyChange(PropertyChange.Seek, CONTROL_SEEK_MAX * dr)
+            State.ControlSeek -> {
+                // Throttle seek updates to ~3 FPS for frame updates during drag
+                val currentTime = SystemClock.uptimeMillis()
+                if (currentTime - lastSeekUpdateTime >= seekUpdateInterval) {
+                    sendPropertyChange(PropertyChange.Seek, CONTROL_SEEK_MAX * dr)
+                    lastSeekUpdateTime = currentTime
+                }
+            }
             State.ControlVolume ->
                 sendPropertyChange(PropertyChange.Volume, CONTROL_VOLUME_MAX * dr)
             State.ControlBright ->
@@ -213,9 +228,17 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
         when (e.action) {
             MotionEvent.ACTION_UP -> {
                 gestureHandled = processMovement(point) or processTap(point)
-                if (state != State.Down)
+                if (state != State.Down) {
+                    // Send final seek position when user lifts finger
+                    if (state == State.ControlSeek) {
+                        val dx = point.x - initialPos.x
+                        val dr = dx / width
+                        sendPropertyChange(PropertyChange.Seek, CONTROL_SEEK_MAX * dr)
+                    }
                     sendPropertyChange(PropertyChange.Finalize, 0f)
+                }
                 state = State.Up
+                lastSeekUpdateTime = 0L // Reset for next gesture
             }
             MotionEvent.ACTION_DOWN -> {
                 // deadzone on top/bottom
