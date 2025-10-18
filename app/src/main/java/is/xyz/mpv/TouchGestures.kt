@@ -51,7 +51,7 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
 
     // Seek update throttling for frame updates during drag
     private var lastSeekUpdateTime = 0L
-    private val seekUpdateInterval = 333L // ~3 FPS (1000ms / 3 frames)
+    private val seekUpdateInterval = 111L // ~3 FPS (1000ms / 3 frames)
 
     private var width = 0f
     private var height = 0f
@@ -92,7 +92,7 @@ internal class TouchGestures(private val observer: TouchGesturesObserver) {
         private const val TAP_DURATION = 300L
 
         // full sweep from left side to right side is 2:30
-        private const val CONTROL_SEEK_MAX = 40f
+        private const val CONTROL_SEEK_MAX = 30f
 
         // same as below, we rescale it inside MPVActivity
         private const val CONTROL_VOLUME_MAX = 1.5f
