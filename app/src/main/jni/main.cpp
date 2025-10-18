@@ -46,6 +46,62 @@ static void prepare_environment(JNIEnv *env, jobject appctx) {
     init_methods_cache(env);
 }
 
+static void setup_nuclear_performance(mpv_handle *mpv) {
+    ALOGV("Enabling NUCLEAR performance mode with SOFTWARE decoding...");
+    
+    // ===== NUCLEAR PERFORMANCE MODE - SOFTWARE DECODING =====
+    
+    // FORCE SOFTWARE DECODING ONLY
+    mpv_set_option_string(mpv, "hwdec", "no");
+    
+    // Use ALL CPU cores for software decoding
+    mpv_set_option_string(mpv, "vd-lavc-threads", "0");
+    
+    // Optimize software decoder for speed
+    mpv_set_option_string(mpv, "vd-lavc-fast", "yes");
+    mpv_set_option_string(mpv, "vd-lavc-skiploopfilter", "nonref");
+    mpv_set_option_string(mpv, "vd-lavc-skipidct", "nonref");
+    
+    // NO frame dropping - decode EVERY frame
+    mpv_set_option_string(mpv, "video-framedrop", "no");
+    mpv_set_option_string(mpv, "hr-seek-framedrop", "no");
+    
+    // Massive decode queue (decode many frames ahead)
+    mpv_set_option_string(mpv, "vd-queue-enable", "yes");
+    mpv_set_option_string(mpv, "vd-queue-max-samples", "32");
+    mpv_set_option_string(mpv, "vd-queue-max-bytes", "300000000"); // 300MB
+    mpv_set_option_string(mpv, "vd-queue-max-secs", "10");
+    
+    // Huge demuxer cache for instant seeking
+    mpv_set_option_string(mpv, "cache", "yes");
+    mpv_set_option_string(mpv, "demuxer-max-bytes", "500000000"); // 500MB
+    mpv_set_option_string(mpv, "demuxer-max-back-bytes", "500000000");
+    mpv_set_option_string(mpv, "demuxer-readahead-secs", "60");
+    
+    // No vsync limitations - render as fast as possible
+    mpv_set_option_string(mpv, "video-sync", "display-desync");
+    mpv_set_option_string(mpv, "opengl-swapinterval", "0");
+    mpv_set_option_string(mpv, "opengl-waitvsync", "no");
+    
+    // Direct rendering for speed (works with software decode)
+    mpv_set_option_string(mpv, "vd-lavc-dr", "yes");
+    
+    // High priority
+    mpv_set_option_string(mpv, "priority", "high");
+    
+    // Seeking specific - precise frame seeking
+    mpv_set_option_string(mpv, "hr-seek", "yes");
+    mpv_set_option_string(mpv, "hr-seek-demuxer-offset", "0");
+    
+    // Disable any throttling
+    mpv_set_option_string(mpv, "video-latency-hacks", "yes");
+    
+    // Optimize for software decoding performance
+    mpv_set_option_string(mpv, "vd-lavc-assume-old-x264", "yes");
+    
+    ALOGV("Nuclear performance mode enabled - SOFTWARE decoding with maximum power!");
+}
+
 jni_func(void, create, jobject appctx) {
     prepare_environment(env, appctx);
 
@@ -55,6 +111,10 @@ jni_func(void, create, jobject appctx) {
     g_mpv = mpv_create();
     if (!g_mpv)
         die("context init failed");
+
+    // ===== APPLY NUCLEAR PERFORMANCE SETTINGS =====
+    setup_nuclear_performance(g_mpv);
+    // ===== END NUCLEAR SETTINGS =====
 
     // use terminal log level but request verbose messages
     // this way --msg-level can be used to adjust later
